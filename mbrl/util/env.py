@@ -59,7 +59,7 @@ def _legacy_make_env(
         env = gym.make(cfg.overrides.env.split("___")[1])
         term_fn, reward_fn = _get_term_and_reward_fn(cfg)
     else:
-        import mbrl.env.mujoco_envs
+        # import mbrl.env.mujoco_envs
 
         if cfg.overrides.env == "cartpole_continuous":
             env = mbrl.env.cartpole_continuous.CartPoleEnv()
