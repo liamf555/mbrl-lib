@@ -1,5 +1,7 @@
-FROM pytorch/pytorch:1.10.0-cuda11.3-cudnn8-runtime
+# FROM pytorch/pytorch:1.10.0-cuda11.3-cudnn8-runtime
+FROM anibali/pytorch:1.8.1-cuda11.1-ubuntu20.04
 
+USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git \
@@ -7,6 +9,8 @@ RUN apt-get update \
 
 COPY . /app
 WORKDIR /app
+
+USER user
 
 # RUN apt-get update \
 #     && apt-get install -y --no-install-recommends \
