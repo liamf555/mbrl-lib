@@ -105,43 +105,43 @@ def maybe_replace_sac_buffer(
 
 
 def train(
-    env: gym.Env,
-    test_env: gym.Env,
-    termination_fn: mbrl.types.TermFnType,
-    cfg: omegaconf.DictConfig,
-    silent: bool = False,
-    work_dir: Optional[str] = None,
-) -> np.float32:
+    env: gym.Env, #training env
+    test_env: gym.Env, #env for evaluation
+    termination_fn: mbrl.types.TermFnType, #termination function
+    cfg: omegaconf.DictConfig, #config file
+    silent: bool = False, #no logging if True
+    work_dir: Optional[str] = None, #working directory
+) -> np.float32: #returns float, error code
     # ------------------- Initialization -------------------
-    debug_mode = cfg.get("debug_mode", False)
+    debug_mode = cfg.get("debug_mode", False) #debug mode, default is false, prints out more info if true
 
-    obs_shape = env.observation_space.shape
-    act_shape = env.action_space.shape
+    obs_shape = env.observation_space.shape #get shape of observation space
+    act_shape = env.action_space.shape # get shape of action space 
 
-    mbrl.planning.complete_agent_cfg(env, cfg.algorithm.agent)
+    mbrl.planning.complete_agent_cfg(env, cfg.algorithm.agent) # Completes an agent's configuration given information from the environment.
     agent = SACAgent(
-        cast(pytorch_sac_pranz24.SAC, hydra.utils.instantiate(cfg.algorithm.agent))
+        cast(pytorch_sac_pranz24.SAC, hydra.utils.instantiate(cfg.algorithm.agent)) # instantiates a SAC agent
     )
 
-    work_dir = work_dir or os.getcwd()
+    work_dir = work_dir or os.getcwd() # set working directory 
     # enable_back_compatible to use pytorch_sac agent
-    logger = mbrl.util.Logger(work_dir, enable_back_compatible=True)
+    logger = mbrl.util.Logger(work_dir, enable_back_compatible=True) #instantiate logging object
     logger.register_group(
         mbrl.constants.RESULTS_LOG_NAME,
         MBPO_LOG_FORMAT,
         color="green",
         dump_frequency=1,
-    )
-    save_video = cfg.get("save_video", False)
+    ) # register group of logging details
+    save_video = cfg.get("save_video", False) # save video of agent, default is false
     video_recorder = VideoRecorder(work_dir if save_video else None)
 
-    rng = np.random.default_rng(seed=cfg.seed)
-    torch_generator = torch.Generator(device=cfg.device)
+    rng = np.random.default_rng(seed=cfg.seed) # create random number gen
+    torch_generator = torch.Generator(device=cfg.device) #create pytorch rng and seed 
     if cfg.seed is not None:
         torch_generator.manual_seed(cfg.seed)
 
     # -------------- Create initial overrides. dataset --------------
-    dynamics_model = mbrl.util.common.create_one_dim_tr_model(cfg, obs_shape, act_shape)
+    dynamics_model = mbrl.util.common.create_one_dim_tr_model(cfg, obs_shape, act_shape) # create dyanmics model 
     use_double_dtype = cfg.algorithm.get("normalize_double_precision", False)
     dtype = np.double if use_double_dtype else np.float32
     replay_buffer = mbrl.util.common.create_replay_buffer(
@@ -152,7 +152,7 @@ def train(
         obs_type=dtype,
         action_type=dtype,
         reward_type=dtype,
-    )
+    ) # create replay bufffer
     random_explore = cfg.algorithm.random_initial_explore
     mbrl.util.common.rollout_agent_trajectories(
         env,
@@ -160,13 +160,13 @@ def train(
         mbrl.planning.RandomAgent(env) if random_explore else agent,
         {} if random_explore else {"sample": True, "batched": False},
         replay_buffer=replay_buffer,
-    )
+    ) # populate replay buffer with trajectories, either random or from agent
 
     # ---------------------------------------------------------
     # --------------------- Training Loop ---------------------
     rollout_batch_size = (
         cfg.overrides.effective_model_rollouts_per_step * cfg.algorithm.freq_train_model
-    )
+    ) 
     trains_per_epoch = int(
         np.ceil(cfg.overrides.epoch_length / cfg.overrides.freq_train_model)
     )
@@ -174,13 +174,13 @@ def train(
     env_steps = 0
     model_env = mbrl.models.ModelEnv(
         env, dynamics_model, termination_fn, None, generator=torch_generator
-    )
+    ) # create a gym-like env to encapulate the model
     model_trainer = mbrl.models.ModelTrainer(
         dynamics_model,
         optim_lr=cfg.overrides.model_lr,
         weight_decay=cfg.overrides.model_wd,
         logger=None if silent else logger,
-    )
+    ) # create trainer for model
     best_eval_reward = -np.inf
     epoch = 0
     sac_buffer = None
@@ -252,7 +252,7 @@ def train(
                 )
                 updates_made += 1
                 if not silent and updates_made % cfg.log_frequency_agent == 0:
-                    logger.dump(updates_made, save=True)
+                    logger.dump(updates_made, save=True) # sac train logger output
 
             # ------ Epoch ended (evaluate and save model) ------
             if (env_steps + 1) % cfg.overrides.epoch_length == 0:
@@ -267,13 +267,13 @@ def train(
                         "episode_reward": avg_reward,
                         "rollout_length": rollout_length,
                     },
-                )
+                ) # eval logging line
                 if avg_reward > best_eval_reward:
                     video_recorder.save(f"{epoch}.mp4")
                     best_eval_reward = avg_reward
                     agent.sac_agent.save_checkpoint(
                         ckpt_path=os.path.join(work_dir, "sac.pth")
-                    )
+                    ) # save sac model
                 epoch += 1
 
             env_steps += 1
