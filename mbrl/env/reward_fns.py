@@ -52,13 +52,3 @@ def pusher(act: torch.Tensor, next_obs: torch.Tensor) -> torch.Tensor:
 
     return -(obs_cost + act_cost).view(-1, 1)
 
-def realflight_loop(act: torch.Tensor, next_obs: torch.Tensor) -> torch.Tensor:
-
-        radius = 50
-
-        distance sqrt((state[0]- target_x)**2 + (state[1] - (100 + radius))**2)
-
-        
-
-        return - (distance - radius)**2
-
