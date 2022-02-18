@@ -1,7 +1,9 @@
 # @package _group_
 env: "RealFlight-v0"
+term_fn: "no_termination"
 env_cfg:
   _target_: "realflight_gym.gym-realflight.gym_realflight.envs.realflight_env.RealFlightEnv"
+  
 trial_length: 200
 
 num_steps: 5000
