@@ -1,0 +1,7 @@
+[default]
+entity = tu18537
+project = mbrl-lib
+base_url = https://api.wandb.ai
+disabled = true
+mode = offline
+

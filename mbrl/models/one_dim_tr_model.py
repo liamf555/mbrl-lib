@@ -153,6 +153,7 @@ class OneDTransitionRewardModel(Model):
         if self.input_normalizer is None:
             return
         obs, action = batch.obs, batch.act
+        print(obs, action)
         if obs.ndim == 1:
             obs = obs[None, :]
             action = action[None, :]

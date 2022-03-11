@@ -11,6 +11,9 @@ save_video: false
 debug_mode: false
 
 experiment: default
+use_wandb: false
+wandb_project_name: mbrl-lib
+wandb_group_name: mbpo_perching
 
 root_dir: "./exp"
 hydra:

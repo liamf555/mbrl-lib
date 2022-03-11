@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import torch
+import math
 
 # TODO remove act from all of these, it's not needed
 
@@ -39,7 +40,10 @@ def cartpole(act: torch.Tensor, next_obs: torch.Tensor) -> torch.Tensor:
         * (theta < theta_threshold_radians)
     )
     done = ~not_done
+    print(not_done)
+    print(done)
     done = done[:, None]
+    print(done)
     return done
 
 
@@ -91,4 +95,35 @@ def humanoid(act: torch.Tensor, next_obs: torch.Tensor):
     done = (z < 1.0) + (z > 2.0)
 
     done = done[:, None]
+    return done
+
+def realflight_hang(act: torch.Tensor, next_obs: torch.Tensor):
+    assert len(next_obs.shape) == 2
+
+    x = next_obs[:, 0].abs()
+    y = next_obs[:, 1].abs()
+    z = next_obs[:, 2]
+
+    # print(x, y, z)
+    not_done = (x < 5.0) * (y < 5.0) * (z > 5.0)
+    # print(not_done)
+    # print(done)
+    done = ~not_done
+    done = done[:, None]
+
+    # print(done)
+
+    return done
+
+def perching_long(act: torch.Tensor, next_obs: torch.Tensor):
+    # print(next_obs)
+    assert len(next_obs.shape) == 2
+
+    z = next_obs[0:, 1]
+    # print(z)
+
+    done = (z > 0)
+
+    done = done[:, None]
+    # print(done)
     return done

@@ -399,6 +399,7 @@ def train_model_and_save_model_and_data(
         bootstrap_permutes=cfg.get("bootstrap_permutes", False),
     )
     if hasattr(model, "update_normalizer"):
+        print("norm")
         model.update_normalizer(replay_buffer.get_all())
     model_trainer.train(
         dataset_train,
