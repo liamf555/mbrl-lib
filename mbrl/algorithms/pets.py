@@ -17,6 +17,7 @@ import mbrl.types
 import mbrl.util
 import mbrl.util.common
 import mbrl.util.math
+from omegaconf import OmegaConf
 
 EVAL_LOG_FORMAT = mbrl.constants.EVAL_LOG_FORMAT
 
@@ -46,7 +47,14 @@ def train(
     if silent:
         logger = None
     else:
-        logger = mbrl.util.Logger(work_dir)
+        logger = mbrl.util.Logger(work_dir,
+        use_wandb=bool(cfg.get("use_wandb", 0)),
+        wandb_name=cfg.experiment,
+        wandb_project_name=cfg.wandb_project_name,
+        wandb_config=OmegaConf.to_container(cfg, resolve=False),
+        wandb_commit_interval_in_secs=cfg.overrides.get(
+        "wandb_commit_interval_in_secs", 300)
+        )
         logger.register_group(
             mbrl.constants.RESULTS_LOG_NAME, EVAL_LOG_FORMAT, color="green"
         )
@@ -128,6 +136,7 @@ def train(
             logger.log_data(
                 mbrl.constants.RESULTS_LOG_NAME,
                 {"env_step": env_steps, "episode_reward": total_reward},
+                commit=True
             )
         current_trial += 1
         if debug_mode:

@@ -10,7 +10,7 @@ import hydra.utils
 import numpy as np
 import omegaconf
 import torch
-
+import math
 import mbrl.constants
 import mbrl.models
 import mbrl.planning
@@ -21,6 +21,7 @@ import mbrl.util.common
 import mbrl.util.math
 from mbrl.planning.sac_wrapper import SACAgent
 from mbrl.third_party.pytorch_sac import VideoRecorder
+from omegaconf import OmegaConf
 
 MBPO_LOG_FORMAT = mbrl.constants.EVAL_LOG_FORMAT + [
     ("epoch", "E", "int"),
@@ -125,7 +126,16 @@ def train(
 
     work_dir = work_dir or os.getcwd() # set working directory 
     # enable_back_compatible to use pytorch_sac agent
-    logger = mbrl.util.Logger(work_dir, enable_back_compatible=True) #instantiate logging object
+    logger = mbrl.util.Logger(work_dir,
+    enable_back_compatible=True,
+    use_wandb=bool(cfg.get("use_wandb", 0)),
+    wandb_name=cfg.experiment,
+    wandb_project_name=cfg.wandb_project_name,
+    wandb_config=OmegaConf.to_container(cfg, resolve=False),
+    wandb_commit_interval_in_secs=cfg.overrides.get(
+        "wandb_commit_interval_in_secs", 300
+        )
+    ) #instantiate logging object
     logger.register_group(
         mbrl.constants.RESULTS_LOG_NAME,
         MBPO_LOG_FORMAT,
@@ -142,7 +152,7 @@ def train(
 
     # -------------- Create initial overrides. dataset --------------
     dynamics_model = mbrl.util.common.create_one_dim_tr_model(cfg, obs_shape, act_shape) # create dyanmics model 
-    use_double_dtype = cfg.algorithm.get("normalize_double_precision", False)
+    use_double_dtype = cfg.algorithm.get("normalize_double_precision", False) #whether to use double precision or not
     dtype = np.double if use_double_dtype else np.float32
     replay_buffer = mbrl.util.common.create_replay_buffer(
         cfg,
@@ -152,7 +162,7 @@ def train(
         obs_type=dtype,
         action_type=dtype,
         reward_type=dtype,
-    ) # create replay bufffer
+    ) # create replay bufffer D_env
     random_explore = cfg.algorithm.random_initial_explore
     mbrl.util.common.rollout_agent_trajectories(
         env,
@@ -194,16 +204,17 @@ def train(
         sac_buffer_capacity *= cfg.overrides.num_epochs_to_retain_sac_buffer
         sac_buffer = maybe_replace_sac_buffer(
             sac_buffer, obs_shape, act_shape, sac_buffer_capacity, cfg.seed
-        )
+        ) #create SAC buffer, D_model
         obs, done = None, False
         for steps_epoch in range(cfg.overrides.epoch_length):
             if steps_epoch == 0 or done:
                 obs, done = env.reset(), False
-            # --- Doing env step and adding to model dataset ---
+            # --- Doing env step and adding to model dataset --- Alogirthm line 5 
             next_obs, reward, done, _ = mbrl.util.common.step_env_and_add_to_buffer(
                 env, obs, agent, {}, replay_buffer
-            )
-
+            ) 
+            # print(obs)
+            # print(done)
             # --------------- Model Training -----------------
             if (env_steps + 1) % cfg.overrides.freq_train_model == 0:
                 mbrl.util.common.train_model_and_save_model_and_data(
@@ -212,7 +223,7 @@ def train(
                     cfg.overrides,
                     replay_buffer,
                     work_dir=work_dir,
-                )
+                ) # Train model p_theta on D_env via maximum likelihood (3)
 
                 # --------- Rollout new model and store imagined trajectories --------
                 # Batch all rollouts for the next freq_train_model steps together
@@ -224,7 +235,7 @@ def train(
                     cfg.algorithm.sac_samples_action,
                     rollout_length,
                     rollout_batch_size,
-                )
+                ) # Perform k step model rollout starting from s_t using policy pi, add to D_model (8)
 
                 if debug_mode:
                     print(
@@ -249,7 +260,7 @@ def train(
                     updates_made,
                     logger,
                     reverse_mask=True,
-                )
+                ) # update policy paramteres on model data (10)
                 updates_made += 1
                 if not silent and updates_made % cfg.log_frequency_agent == 0:
                     logger.dump(updates_made, save=True) # sac train logger output
@@ -267,6 +278,7 @@ def train(
                         "episode_reward": avg_reward,
                         "rollout_length": rollout_length,
                     },
+                    commit=True
                 ) # eval logging line
                 if avg_reward > best_eval_reward:
                     video_recorder.save(f"{epoch}.mp4")
