@@ -127,3 +127,6 @@ def perching_long(act: torch.Tensor, next_obs: torch.Tensor):
     done = done[:, None]
     # print(done)
     return done
+
+def realflight_level(act: torch.Tensor, next_obs: torch.Tensor):
+    pass

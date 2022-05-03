@@ -1,3 +1,3 @@
 [submodule "realflight_gym"] 
-   path = realflight_gym 
-   url = git@github.com:liamf555/realflight_gym.git
+	path = realflight_gym
+	url = git@github.com:liamf555/realflight_gym.git
