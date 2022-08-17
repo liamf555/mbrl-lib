@@ -30,7 +30,6 @@ def train(
     silent: bool = False,
     work_dir: Optional[str] = None,
 ) -> np.float32:
-    # print(dir(env))
     # ------------------- Initialization -------------------
     debug_mode = cfg.get("debug_mode", False)
 
@@ -54,7 +53,7 @@ def train(
         wandb_project_name=cfg.wandb_project_name,
         wandb_config=OmegaConf.to_container(cfg, resolve=False),
         wandb_commit_interval_in_secs=cfg.overrides.get(
-        "wandb_commit_interval_in_secs", 60)
+        "wandb_commit_interval_in_secs", 300)
         )
         logger.register_group(
             mbrl.constants.RESULTS_LOG_NAME, EVAL_LOG_FORMAT, color="green"
@@ -73,19 +72,21 @@ def train(
         action_type=dtype,
         reward_type=dtype,
     )
-    print('POPULATING BUFFER')
+
+    # connection = mavutil.mavlink_connection('udp:0.0.0.0:14551')
+    # connection.wait_heartbeat()
+
+    # env.connection = connection
+    dir(env)
+    
+    print('Populating replay buffer...')
     mbrl.util.common.rollout_agent_trajectories(
         env,
-        # cfg.algorithm.initial_exploration_steps,
-        len(env.manoeuvres),
-        mbrl.planning.AcroAgent(env),
-        # mbrl.planning.RandomAgent(env),
+        cfg.algorithm.initial_exploration_steps,
+        mbrl.planning.RandomAgent(env),
         {},
         replay_buffer=replay_buffer,
-        collect_full_trajectories=True,
     )
-    # env.set_(0)
-    env.close()
     replay_buffer.save(work_dir)
 
     # ---------------------------------------------------------
@@ -107,23 +108,22 @@ def train(
     # ---------------------------------------------------------
     # --------------------- Training Loop ---------------------
     env_steps = 0
-    first_loop = True
     current_trial = 0
     max_total_reward = -np.inf
-    train_flag = True
+    
     while env_steps < cfg.overrides.num_steps:
-        # print(f'env_steps: {env_steps}')
-        # print(f'ROLLOUT')
-        reset_flag = True
-
+        
+        print(f'env_steps: {env_steps}')
+        print(f'current_trial: {current_trial}')
+        obs = env.reset()
+        agent.reset()
         done = False
         total_reward = 0.0
         steps_trial = 0
         while not done:
             # --------------- Model Training -----------------
-            if current_trial % cfg.algorithm.freq_train_model == 0 and train_flag == True:
-                # env.close()
-                print('TRAINING MODEL')
+            if env_steps % cfg.algorithm.freq_train_model == 0:
+                print('Training model...')
                 mbrl.util.common.train_model_and_save_model_and_data(
                     dynamics_model,
                     model_trainer,
@@ -131,14 +131,8 @@ def train(
                     replay_buffer,
                     work_dir=work_dir,
                 )
-                train_flag = False
-                reset_flag = True
-            if reset_flag:
-                env.render()
-                obs = env.reset()
-                agent.reset()
-                reset_flag = False
-            # print('Doing rollout...')
+            # it isnt the training tha tcauses the issues, must be the rollout
+            print('Doing rollout...')
             # --- Doing env step using the agent and adding to model dataset ---
             next_obs, reward, done, _ = mbrl.util.common.step_env_and_add_to_buffer(
                 env, obs, agent, {}, replay_buffer
@@ -159,8 +153,6 @@ def train(
                 commit=True
             )
         current_trial += 1
-        train_flag = True
-        env.close()
         if debug_mode:
             print(f"Trial: {current_trial }, reward: {total_reward}.")
 

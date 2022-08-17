@@ -133,7 +133,6 @@ class ModelTrainer:
 
         """
         eval_dataset = dataset_train if dataset_val is None else dataset_val
-
         training_losses, val_scores = [], []
         best_weights: Optional[Dict] = None
         epoch_iter = range(num_epochs) if num_epochs else itertools.count()
@@ -142,17 +141,19 @@ class ModelTrainer:
         # only enable tqdm if training for a single epoch,
         # otherwise it produces too much output
         disable_tqdm = silent or (num_epochs is None or num_epochs > 1)
-
         for epoch in epoch_iter:
             if batch_callback:
                 batch_callback_epoch = functools.partial(batch_callback, epoch)
             else:
+
                 batch_callback_epoch = None
             batch_losses: List[float] = []
             for batch in tqdm.tqdm(dataset_train, disable=disable_tqdm):
+
                 loss, meta = self.model.update(batch, self.optimizer)
                 batch_losses.append(loss)
                 if batch_callback_epoch:
+  
                     batch_callback_epoch(loss, meta, "train")
             total_avg_loss = np.mean(batch_losses).mean().item()
             training_losses.append(total_avg_loss)
@@ -173,6 +174,7 @@ class ModelTrainer:
                     best_weights = maybe_best_weights
                     epochs_since_update = 0
                 else:
+
                     epochs_since_update += 1
                 model_val_score = eval_score.mean()
 
@@ -204,10 +206,12 @@ class ModelTrainer:
                 )
 
             if patience and epochs_since_update >= patience:
+
                 break
 
         # saving the best models:
         if evaluate:
+
             self._maybe_set_best_weights_and_elite(best_weights, best_val_score)
 
         self._train_iteration += 1

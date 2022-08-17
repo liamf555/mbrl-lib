@@ -1,3 +1,6 @@
 [submodule "realflight_gym"] 
 	path = realflight_gym
 	url = git@github.com:liamf555/realflight_gym.git
+[submodule "ardupilot-gym"]
+	path = ardupilot-gym
+	url = git@github.com:liamf555/ardupilot_gym.git

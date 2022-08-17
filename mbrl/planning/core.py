@@ -13,6 +13,7 @@ import omegaconf
 
 import mbrl.models
 import mbrl.types
+from mbrl.planning.aeropytics import LooPy
 
 
 class Agent:
@@ -66,6 +67,21 @@ class RandomAgent(Agent):
             (np.ndarray): an action sampled from the environment's action space.
         """
         return self.env.action_space.sample()
+
+class AcroAgent(Agent):
+    """An agent that performs aerobatic actions to populate the replay buffer
+
+    Args:
+        env (gym.Env): the environment on which the agent will act.
+
+    """
+    def __init__(self, env: gym.Env):
+        self.env = env
+        
+
+    def act(self, *_args, **_kwargs) -> np.ndarray:
+        return self.env.manoeuvre_instance.do_manoeuvre()
+        
 
 
 def complete_agent_cfg(

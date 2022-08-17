@@ -9,6 +9,7 @@ import gym.wrappers
 import hydra
 import numpy as np
 import omegaconf
+import time
 
 import mbrl.models
 import mbrl.planning
@@ -399,7 +400,6 @@ def train_model_and_save_model_and_data(
         bootstrap_permutes=cfg.get("bootstrap_permutes", False),
     )
     if hasattr(model, "update_normalizer"):
-        print("norm")
         model.update_normalizer(replay_buffer.get_all())
     model_trainer.train(
         dataset_train,
@@ -564,6 +564,7 @@ def step_env_and_add_to_buffer(
     replay_buffer: ReplayBuffer,
     callback: Optional[Callable] = None,
     agent_uses_low_dim_obs: bool = False,
+    previous_time = 0
 ) -> Tuple[np.ndarray, float, bool, Dict]:
     """Steps the environment with an agent's action and populates the replay buffer.
 
@@ -594,12 +595,18 @@ def step_env_and_add_to_buffer(
             "env of type mbrl.env.MujocoGymPixelWrapper."
         )
     if agent_uses_low_dim_obs:
+        # print('1')
         agent_obs = getattr(env, "get_last_low_dim_obs")()
     else:
+        # print('2')
         agent_obs = obs
     action = agent.act(agent_obs, **agent_kwargs)
+    # print(f"step_env {action}")
+
     next_obs, reward, done, info = env.step(action)
+   
     replay_buffer.add(obs, action, next_obs, reward, done)
     if callback:
+        # print('3')
         callback((obs, action, next_obs, reward, done))
     return next_obs, reward, done, info

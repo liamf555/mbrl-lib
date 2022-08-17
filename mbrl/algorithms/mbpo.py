@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 import os
+from posix import environ
 from typing import Optional, Sequence, cast
 
 import gym
@@ -133,7 +134,7 @@ def train(
     wandb_project_name=cfg.wandb_project_name,
     wandb_config=OmegaConf.to_container(cfg, resolve=False),
     wandb_commit_interval_in_secs=cfg.overrides.get(
-        "wandb_commit_interval_in_secs", 300
+        "wandb_commit_interval_in_secs", 60
         )
     ) #instantiate logging object
     logger.register_group(
@@ -164,14 +165,17 @@ def train(
         reward_type=dtype,
     ) # create replay bufffer D_env
     random_explore = cfg.algorithm.random_initial_explore
+    print('Populating replay buffer...')
     mbrl.util.common.rollout_agent_trajectories(
         env,
-        cfg.algorithm.initial_exploration_steps,
+        # cfg.algorithm.initial_exploration_steps,
+        1,
         mbrl.planning.RandomAgent(env) if random_explore else agent,
         {} if random_explore else {"sample": True, "batched": False},
         replay_buffer=replay_buffer,
+        collect_full_trajectories=True,
     ) # populate replay buffer with trajectories, either random or from agent
-
+    env.close()
     # ---------------------------------------------------------
     # --------------------- Training Loop ---------------------
     rollout_batch_size = (
@@ -195,28 +199,41 @@ def train(
     epoch = 0
     sac_buffer = None
     while env_steps < cfg.overrides.num_steps:
+        print(f"Env steps {env_steps}")
+        print(f"Epoch {epoch}")
         rollout_length = int(
             mbrl.util.math.truncated_linear(
                 *(cfg.overrides.rollout_schedule + [epoch + 1])
             )
         )
+        # print('1')
         sac_buffer_capacity = rollout_length * rollout_batch_size * trains_per_epoch
         sac_buffer_capacity *= cfg.overrides.num_epochs_to_retain_sac_buffer
         sac_buffer = maybe_replace_sac_buffer(
             sac_buffer, obs_shape, act_shape, sac_buffer_capacity, cfg.seed
         ) #create SAC buffer, D_model
+        # print('2')
         obs, done = None, False
         for steps_epoch in range(cfg.overrides.epoch_length):
             if steps_epoch == 0 or done:
+                # print('3') 
+                env.render()
+                train_model = False
                 obs, done = env.reset(), False
             # --- Doing env step and adding to model dataset --- Alogirthm line 5 
             next_obs, reward, done, _ = mbrl.util.common.step_env_and_add_to_buffer(
                 env, obs, agent, {}, replay_buffer
-            ) 
+            )
+            if done:
+                env.close()
+                train_model = True
+
+            
             # print(obs)
             # print(done)
             # --------------- Model Training -----------------
-            if (env_steps + 1) % cfg.overrides.freq_train_model == 0:
+            # if (env_steps + 1) % cfg.overrides.freq_train_model == 0:
+            if train_model:
                 mbrl.util.common.train_model_and_save_model_and_data(
                     dynamics_model,
                     model_trainer,
@@ -236,7 +253,6 @@ def train(
                     rollout_length,
                     rollout_batch_size,
                 ) # Perform k step model rollout starting from s_t using policy pi, add to D_model (8)
-
                 if debug_mode:
                     print(
                         f"Epoch: {epoch}. "
@@ -244,16 +260,17 @@ def train(
                         f"Rollout length: {rollout_length}. "
                         f"Steps: {env_steps}"
                     )
-
             # --------------- Agent Training -----------------
             for _ in range(cfg.overrides.num_sac_updates_per_step):
+                print('agent training')
+                
                 use_real_data = rng.random() < cfg.algorithm.real_data_ratio
                 which_buffer = replay_buffer if use_real_data else sac_buffer
                 if (env_steps + 1) % cfg.overrides.sac_updates_every_steps != 0 or len(
                     which_buffer
                 ) < cfg.overrides.sac_batch_size:
                     break  # only update every once in a while
-
+                
                 agent.sac_agent.update_parameters(
                     which_buffer,
                     cfg.overrides.sac_batch_size,
@@ -267,6 +284,7 @@ def train(
 
             # ------ Epoch ended (evaluate and save model) ------
             if (env_steps + 1) % cfg.overrides.epoch_length == 0:
+                
                 avg_reward = evaluate(
                     test_env, agent, cfg.algorithm.num_eval_episodes, video_recorder
                 )
@@ -290,4 +308,5 @@ def train(
 
             env_steps += 1
             obs = next_obs
+            # print('11')
     return np.float32(best_eval_reward)
