@@ -397,6 +397,7 @@ class KnifePy(AeroPy):
 
       i = 0
       self.env.acro_states["duration"] = now - self.knife_edge_s
+      print(f"Duration {self.env.acro_states['duration']}")
       roll_deg = np.degrees(self.env.get_euler()[0])
       roll_angle_error = self.arg1 - roll_deg
       if abs(roll_angle_error) > 180:

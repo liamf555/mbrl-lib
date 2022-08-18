@@ -92,7 +92,7 @@ def _legacy_make_env(
         else:
             raise ValueError("Invalid environment string.")
         env = gym.wrappers.TimeLimit(
-            env, max_episode_steps=cfg.overrides.get("trial_length", 1000)
+            env, max_episode_steps=cfg.overrides.get("trial_length", 10000)
         )
 
     env, reward_fn = _handle_learned_rewards_and_seed(cfg, env, reward_fn)
@@ -182,7 +182,7 @@ class EnvHandler(ABC):
 
         env = hydra.utils.instantiate(cfg.overrides.env_cfg)
         env = gym.wrappers.TimeLimit(
-            env, max_episode_steps=cfg.overrides.get("trial_length", 1000)
+            env, max_episode_steps=cfg.overrides.get("trial_length", 10000)
         )
         term_fn, reward_fn = _get_term_and_reward_fn(cfg)
         env, reward_fn = _handle_learned_rewards_and_seed(cfg, env, reward_fn)
